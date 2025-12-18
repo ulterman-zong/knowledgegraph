@@ -1,6 +1,5 @@
 <script setup>
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus' // 补充导入
+import { ref, nextTick } from 'vue'
 
 // 定义表单校验规则
 const rules = ref({
@@ -10,24 +9,26 @@ const rules = ref({
 // 组件状态
 const isEdit = ref(false)
 const dialogVisible = ref(false)
-// 完善表单字段：包含连线核心属性
 const formModel = ref({
-  linkId: '', // 连线唯一ID（编辑时必填）
-  Link_Relationship: '', // 连线标签/关系
-  curveness: 0.2 // 曲线弧度（0-1）
+  linkId: '',
+  sourceId: '',
+  targetId: '',
+  sourceName: '',
+  targetName: '',
+  Link_Relationship: '',
+  curveness: 0.2
 })
 
-// 定义事件：提交数据、关闭弹窗
+// 定义事件
 const emit = defineEmits(['subLink', 'close'])
 
 // 提交表单
 const onSubmit = () => {
-  // 基础校验：关系不能为空
+  // 基础校验
   if (!formModel.value.Link_Relationship.trim()) {
     ElMessage.warning('请输入连线关系！')
     return
   }
-  // 弧度范围校验
   if (formModel.value.curveness < 0 || formModel.value.curveness > 1) {
     ElMessage.warning('曲线弧度需在 0-1 之间！')
     return
@@ -37,40 +38,50 @@ const onSubmit = () => {
   const subData = {
     isEdit: isEdit.value,
     linkId: formModel.value.linkId,
-    label: formModel.value.Link_Relationship.trim(), // 对应Store的label字段
-    curveness: Number(formModel.value.curveness) // 确保是数字
+    sourceId: formModel.value.sourceId,
+    targetId: formModel.value.targetId,
+    sourceName: formModel.value.sourceName,
+    targetName: formModel.value.targetName,
+    label: formModel.value.Link_Relationship.trim(),
+    curveness: Number(formModel.value.curveness)
   }
 
-  emit('subLink', subData) // 触发提交事件
-  ElMessage.success(isEdit.value ? '连线编辑成功' : '连线新增成功')
+  // 触发提交事件
+  emit('subLink', subData)
+
+  // 强制关闭弹窗（双重保障）
   dialogVisible.value = false
+  nextTick(() => {
+    dialogVisible.value = false
+    emit('close')
+  })
 }
 
-// 打开弹窗（接收外部参数）
+// 打开弹窗
 const open = (options) => {
   console.log('连线弹窗参数：', options)
-  isEdit.value = !!options.isEdit // 布尔值转换
+  isEdit.value = !!options.isEdit
   dialogVisible.value = true
 
-  // 编辑模式：回显已有连线数据
   if (options.isEdit && options.data) {
     formModel.value = {
       linkId: options.data.linkId || '',
+      sourceId: options.data.sourceId || '',
+      targetId: options.data.targetId || '',
+      sourceName: options.data.sourceName || '',
+      targetName: options.data.targetName || '',
       Link_Relationship: options.data.label || options.data.Link_Relationship || '关联',
       curveness: options.data.curveness || 0.2
     }
-  }
-  // 新增模式：重置表单（保留默认弧度）
-  else {
+  } else {
     formModel.value = {
       linkId: '',
+      sourceId: options.sourceId || '',
+      targetId: options.targetId || '',
+      sourceName: options.sourceName || '',
+      targetName: options.targetName || '',
       Link_Relationship: '',
       curveness: 0.2
-    }
-    // 新增时传入起点/终点ID（用于addLink）
-    if (options.sourceId && options.targetId) {
-      formModel.value.sourceId = options.sourceId
-      formModel.value.targetId = options.targetId
     }
   }
 }
@@ -81,9 +92,16 @@ const onCancel = () => {
   emit('close')
 }
 
-// 暴露方法给父组件
+// 显式关闭方法
+const close = () => {
+  dialogVisible.value = false
+  emit('close')
+}
+
+// 暴露方法
 defineExpose({
-  open
+  open,
+  close
 })
 </script>
 
@@ -93,6 +111,7 @@ defineExpose({
     :title="isEdit ? '编辑连线关系' : '新增连线关系'"
     width="400px"
     @close="onCancel"
+    :close-on-click-modal="false"
   >
     <el-form
       :model="formModel"
@@ -101,15 +120,9 @@ defineExpose({
       ref="linkFormRef"
       style="padding: 0 10px"
     >
-      <!-- 连线关系（标签） -->
       <el-form-item label="连线关系" prop="Link_Relationship">
-        <el-input
-          v-model="formModel.Link_Relationship"
-          placeholder="请输入连线关系（如：父子、包含）"
-          maxlength="20"
-        />
+        <el-input v-model="formModel.Link_Relationship" maxlength="20" />
       </el-form-item>
-      <!-- 曲线弧度 -->
       <el-form-item label="曲线弧度">
         <el-input-number
           v-model="formModel.curveness"

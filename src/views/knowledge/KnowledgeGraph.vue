@@ -4,9 +4,7 @@ import { useDataStore } from '@/stores/modules/DataStore'
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import DataEdit from '@/components/DataEdit.vue'
-// 1. 新增：导入 LinkEdit 组件 + 补充 Element 提示组件导入
 import LinkEdit from '@/components/LinkEdit.vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 
 //1.初始化DataStore数据
 const dataStore = useDataStore()
@@ -217,7 +215,7 @@ const enterLinkMode = () => {
   firstSelectedNode.value = null
   selectedNode.value = null
   selectedLink.value = null // 清空连线选中
-  ElMessage.info('已进入连线模式，请先选择起点节点，再选择终点节点')
+  ElMessage.info('请先选择起点节点，再选择终点节点')
   // 重置所有高亮
   const newOption = JSON.parse(JSON.stringify(option.value))
   newOption.series[0].data.forEach((node) => {
@@ -245,7 +243,6 @@ const exitLinkMode = () => {
     node.itemStyle = { color: node.rawData.color }
   })
   myChart.setOption(newOption)
-  ElMessage.info('已退出连线模式')
 }
 
 //操作逻辑
@@ -317,19 +314,18 @@ const handleDeleteLink = () => {
     })
 }
 
-// 4. 新增：处理 LinkEdit 提交事件（核心）
+// 处理LinkEdit提交事件
 const handleSubLink = (subData) => {
   if (subData.isEdit) {
-    // 编辑连线：调用 updateLink 更新数据
+    // 编辑连线逻辑...
     updateLink(subData.linkId, {
       label: subData.label,
       curveness: subData.curveness
     })
-    // 刷新高亮样式
     highlightLink({ ...selectedLink.value, label: subData.label, curveness: subData.curveness })
     ElMessage.success('连线修改成功！')
   } else {
-    // 新增连线：调用 addLink 创建数据
+    // 新增连线
     const success = addLink({
       sourceId: subData.sourceId,
       targetId: subData.targetId,
@@ -337,14 +333,20 @@ const handleSubLink = (subData) => {
       curveness: subData.curveness
     })
     if (success) {
-      ElMessage.success(
-        `成功创建连线：${firstSelectedNode.value.Data_name} → ${subData.targetName || '目标节点'}`
-      )
+      ElMessage.success('成功创建连线')
     } else {
-      ElMessage.warning('该连线已存在，无需重复创建！')
+      ElMessage.warning('连线已存在，无需重复创建！')
     }
-    // 清空起点选中状态
     firstSelectedNode.value = null
+    exitLinkMode()
+  }
+
+  // ========== 新增：强制关闭LinkEdit弹窗（兜底） ==========
+  if (linkEditRef.value) {
+    // 若组件有暴露close方法，直接调用；若无，强制修改dialogVisible
+    linkEditRef.value.dialogVisible = false
+    // 兼容不同写法：如果组件用defineExpose暴露了close方法，可调用
+    // linkEditRef.value.close?.()
   }
 }
 
