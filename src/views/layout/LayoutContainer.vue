@@ -10,6 +10,15 @@ import {
   CaretBottom,
   MapLocation
 } from '@element-plus/icons-vue'
+import { useRoute } from 'vue-router'
+import { computed } from 'vue'
+
+const route = useRoute()
+
+// 核心：只返回纯路径，忽略查询参数
+const activeMenuPath = computed(() => {
+  return route.path
+})
 </script>
 
 <template>
@@ -19,11 +28,12 @@ import {
       <el-menu
         active-text-color="#ffd04b"
         background-color="#232323"
-        :default-active="$route.path"
+        :default-active="activeMenuPath"
         text-color="#fff"
         router
       >
-        <el-menu-item index="/map/MapDataShow">
+        <!-- 菜单index是纯路径，和route.path完全一致 -->
+        <el-menu-item index="/map/mapdatashow">
           <el-icon><MapLocation /></el-icon>
           <span>地图展示</span>
         </el-menu-item>
@@ -92,6 +102,11 @@ import {
     }
     .el-menu {
       border-right: none;
+      // 增强高亮样式，确保视觉明显
+      &-item.is-active {
+        background-color: #333 !important;
+        border-left: 3px solid #ffd04b !important;
+      }
     }
   }
   .el-header {
@@ -106,7 +121,6 @@ import {
         color: #999;
         margin-left: 10px;
       }
-
       &:active,
       &:focus {
         outline: none;
