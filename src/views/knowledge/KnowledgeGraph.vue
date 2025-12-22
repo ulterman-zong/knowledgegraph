@@ -5,6 +5,8 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import DataEdit from '@/components/DataEdit.vue'
 import LinkEdit from '@/components/LinkEdit.vue'
+import { useRouter } from 'vue-router'
+const router = useRouter()
 
 //1.初始化DataStore数据
 const dataStore = useDataStore()
@@ -207,6 +209,16 @@ const initChart = () => {
       })
     }
   })
+  // 初始化图表时的dblclick事件
+  myChart.on('dblclick', (params) => {
+    if (params.dataType !== 'node') return
+    const nodeData = params.data.rawData
+    // 路由跳转到地图页面，并携带节点Data_id作为参数
+    router.push({
+      path: '/map/mapdatashow',
+      query: { nodeId: nodeData.Data_id } // 传递节点ID
+    })
+  })
 }
 
 // 进入连线模式
@@ -356,17 +368,22 @@ const handleSubData = (subData) => {
     subData
 
   if (!isEdit) {
-    const newId = Date.now() // 改用时间戳保证唯一ID
+    const newId = Date.now()
     const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16)
     const randomEchartX = Math.random() * 800 + 100
     const randomEchartY = Math.random() * 500 + 100
+
+    // 修复：默认填充真实经纬度（示例用北京坐标，可替换为业务需要的默认值）
+    const defaultLng = 116.403874 // 北京经度
+    const defaultLat = 39.914888 // 北京纬度
 
     addData({
       Data_id: newId,
       Data_name,
       Data_type,
-      x_Coordinates: x_Coordinates || 0,
-      y_Coordinates: y_Coordinates || 0,
+      // 有传坐标用传的值，否则用默认真实坐标
+      x_Coordinates: x_Coordinates || defaultLng,
+      y_Coordinates: y_Coordinates || defaultLat,
       z_Coordinates: z_Coordinates || 0,
       echart_x: randomEchartX,
       echart_y: randomEchartY,
@@ -382,7 +399,6 @@ const handleSubData = (subData) => {
     })
   }
 }
-
 //监听Store变化，自动更新Echarts
 watch(
   [DataList, linkList],

@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 
 export const useDataStore = defineStore('Data', () => {
@@ -141,7 +141,52 @@ export const useDataStore = defineStore('Data', () => {
       })
       .filter((link) => link.source && link.target) // 过滤无效连线
   }
-
+  //地图联动相关方法
+  const getSpatialNodes = () => {
+    return DataList.value
+      .filter((item) => {
+        return (
+          item.x_Coordinates &&
+          !isNaN(item.x_Coordinates) &&
+          item.y_Coordinates &&
+          !isNaN(item.y_Coordinates)
+        )
+      })
+      .map((item) => {
+        //转为地图组件所需格式
+        return {
+          id: item.Data_id,
+          name: item.Data_name, // 节点名称
+          coords: [item.x_Coordinates, item.y_Coordinates], // 高德坐标[经度, 纬度]
+          info: {
+            // 弹窗展示的信息（可扩展）
+            type: item.Data_type,
+            z: item.z_Coordinates,
+            parentId: item.parent_id
+          },
+          color: item.color // 节点颜色（同步知识图谱）
+        }
+      })
+  }
+  //监听数据变化的回调
+  const watchSpatialData = (callback) => {
+    //监听DataLis变化，触发回调
+    const unwatch = watch(
+      () => DataList.value,
+      () => {
+        callback(getSpatialNodes()) // 传递最新的空间节点数据
+      },
+      { deep: true, immediate: true } // 深度监听 + 立即执行一次
+    )
+    return unwatch // 返回取消监听的方法
+  }
+  //反向更新节点坐标
+  const updateNodeCoords = (dataId, lng, lat) => {
+    updateData(dataId, {
+      x_Coordinates: lng,
+      y_Coordinates: lat
+    })
+  }
   return {
     DataList,
     linkList,
@@ -149,10 +194,13 @@ export const useDataStore = defineStore('Data', () => {
     addData,
     updateData,
     deleteData,
-    queryData, // 新增查询方法
+    queryData,
     addLink,
     deleteLink,
     getLinks,
-    updateLink
+    updateLink,
+    getSpatialNodes,
+    watchSpatialData,
+    updateNodeCoords
   }
 })
