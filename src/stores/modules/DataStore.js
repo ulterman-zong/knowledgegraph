@@ -8,7 +8,6 @@ export const useDataStore = defineStore('Data', () => {
     if (localData) {
       return JSON.parse(localData)
     } else {
-      // 扩展默认数据：补充 color（节点颜色）、parent_id（关联父节点ID）
       return [
         {
           Data_id: 100001,
@@ -161,6 +160,7 @@ export const useDataStore = defineStore('Data', () => {
           info: {
             // 弹窗展示的信息（可扩展）
             type: item.Data_type,
+            pointType: item.Point_type, // 新增：传递点位类型到地图
             z: item.z_Coordinates,
             parentId: item.parent_id
           },

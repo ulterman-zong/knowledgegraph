@@ -52,7 +52,7 @@ const option = ref({
       type: 'graph',
       layout: 'force',
       force: { repulsion: 500, edgeLength: 200 },
-      symbolSize: 15,
+      symbolSize: 50,
       draggable: true,
       roam: true,
       label: { show: true },
@@ -213,6 +213,7 @@ const initChart = () => {
   myChart.on('dblclick', (params) => {
     if (params.dataType !== 'node') return
     const nodeData = params.data.rawData
+    if (nodeData.Point_type === 'Class') return
     // 路由跳转到地图页面，并携带节点Data_id作为参数
     router.push({
       path: '/map/mapdatashow',
@@ -353,7 +354,6 @@ const handleSubLink = (subData) => {
     exitLinkMode()
   }
 
-  // ========== 新增：强制关闭LinkEdit弹窗（兜底） ==========
   if (linkEditRef.value) {
     // 若组件有暴露close方法，直接调用；若无，强制修改dialogVisible
     linkEditRef.value.dialogVisible = false
@@ -364,8 +364,16 @@ const handleSubLink = (subData) => {
 
 //6.监听DataEdit的subdata事件，处理新增/修改逻辑
 const handleSubData = (subData) => {
-  const { isEdit, Data_id, Data_name, Data_type, x_Coordinates, y_Coordinates, z_Coordinates } =
-    subData
+  const {
+    isEdit,
+    Data_id,
+    Data_name,
+    Data_type,
+    x_Coordinates,
+    y_Coordinates,
+    z_Coordinates,
+    Point_type
+  } = subData
 
   if (!isEdit) {
     const newId = Date.now()
@@ -381,6 +389,7 @@ const handleSubData = (subData) => {
       Data_id: newId,
       Data_name,
       Data_type,
+      Point_type: Point_type || '',
       // 有传坐标用传的值，否则用默认真实坐标
       x_Coordinates: x_Coordinates || defaultLng,
       y_Coordinates: y_Coordinates || defaultLat,
@@ -393,6 +402,7 @@ const handleSubData = (subData) => {
     updateData(Data_id, {
       Data_name,
       Data_type,
+      Point_type,
       x_Coordinates,
       y_Coordinates,
       z_Coordinates

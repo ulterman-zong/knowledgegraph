@@ -42,8 +42,7 @@ const onSubmit = () => {
     targetId: formModel.value.targetId,
     sourceName: formModel.value.sourceName,
     targetName: formModel.value.targetName,
-    label: formModel.value.Link_Relationship.trim(),
-    curveness: Number(formModel.value.curveness)
+    label: formModel.value.Link_Relationship.trim()
   }
 
   // 触发提交事件
@@ -70,8 +69,7 @@ const open = (options) => {
       targetId: options.data.targetId || '',
       sourceName: options.data.sourceName || '',
       targetName: options.data.targetName || '',
-      Link_Relationship: options.data.label || options.data.Link_Relationship || '关联',
-      curveness: options.data.curveness || 0.2
+      Link_Relationship: options.data.label || options.data.Link_Relationship || '关联'
     }
   } else {
     formModel.value = {
@@ -122,16 +120,6 @@ defineExpose({
     >
       <el-form-item label="连线关系" prop="Link_Relationship">
         <el-input v-model="formModel.Link_Relationship" maxlength="20" />
-      </el-form-item>
-      <el-form-item label="曲线弧度">
-        <el-input-number
-          v-model="formModel.curveness"
-          :min="0"
-          :max="1"
-          :step="0.1"
-          style="width: 100%"
-          placeholder="0为直线，数值越大弧度越大"
-        />
       </el-form-item>
     </el-form>
 
