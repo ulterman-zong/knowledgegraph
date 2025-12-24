@@ -1,8 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useDataStore } from '@/stores/modules/DataStore'
-import { useRoute } from 'vue-router' // 新增：读取路由参数
-import markerIcon from '@/assets/微信图片_20251222094059_181_57.jpg'
+import { useRoute } from 'vue-router'
+import markerIcon from '@/assets/bb63e069635472c8c6cfc779ac6874a7.jpg'
 import { ElMessage } from 'element-plus'
 
 // 高德配置
@@ -18,19 +18,23 @@ let mapInstance = null
 let infoWindow = null
 const markerMap = new Map()
 const dataStore = useDataStore()
-const route = useRoute() // 路由参数
+const route = useRoute()
 let unwatchData = null
 
-// 加载高德API
+// 加载高德API（增加版本打印，排查版本问题）
 const loadAmapJsApi = () => {
   return new Promise((resolve, reject) => {
     if (window.AMap) {
+      console.log('当前高德API版本：', window.AMap.version) // 打印版本
       resolve(window.AMap)
       return
     }
     const script = document.createElement('script')
     script.src = `https://webapi.amap.com/maps?v=${AMAP_CONFIG.jsApiVersion}&key=${AMAP_CONFIG.jsKey}&plugin=${AMAP_CONFIG.plugins.join(',')}`
-    script.onload = () => resolve(window.AMap)
+    script.onload = () => {
+      console.log('加载的高德API版本：', window.AMap.version)
+      resolve(window.AMap)
+    }
     script.onerror = () => reject(new Error('高德地图JS API加载失败'))
     document.head.appendChild(script)
   })
@@ -49,23 +53,39 @@ const initMap = async () => {
     infoWindow = new AMap.InfoWindow({
       offset: new AMap.Pixel(0, -30)
     })
-    // 地图初始化后，定位路由参数对应的节点
-    locateNodeByRoute()
+    locateNodeByRoute() // 地图初始化后定位
   } catch (err) {
     console.error('地图初始化失败：', err)
   }
 }
 
-// 渲染节点
+// 渲染节点（增加坐标校验，确保Marker有效）
 const renderSpatialNodes = (spatialNodes) => {
   if (!mapInstance) return
   markerMap.forEach((marker) => mapInstance.remove(marker))
   markerMap.clear()
 
   const AMap = window.AMap
-  spatialNodes.forEach((node) => {
+  const validNodes = spatialNodes.filter((node) => {
+    // 排除info中pointType等于'Class'的节点
+    return node.info?.pointType !== 'Class'
+  })
+
+  validNodes.forEach((node) => {
+    // 校验坐标有效性，避免创建无效Marker
+    if (
+      !node.coords ||
+      !Array.isArray(node.coords) ||
+      node.coords.length !== 2 ||
+      isNaN(node.coords[0]) ||
+      isNaN(node.coords[1])
+    ) {
+      console.warn('跳过无效坐标节点：', node.id)
+      return
+    }
+    // 显式创建LngLat坐标（高德推荐，提升兼容性）
     const marker = new AMap.Marker({
-      position: node.coords,
+      position: new AMap.LngLat(node.coords[0], node.coords[1]),
       title: node.name,
       map: mapInstance,
       icon: new AMap.Icon({
@@ -97,30 +117,64 @@ const showNodeInfo = (node) => {
   infoWindow.open(mapInstance, node.coords)
 }
 
-// 核心：根据路由参数定位节点
+// 核心：定位节点（保留动画+安全校验+修复定位）
 const locateNodeByRoute = () => {
   const nodeId = route.query.nodeId
   if (!nodeId || !mapInstance) return
 
-  // 修复：延迟100ms，确保节点已渲染到markerMap中
+  // 延长延迟到800ms（确保Marker完全渲染，原100ms太短）
   setTimeout(() => {
-    const node = dataStore.getSpatialNodes().find((item) => item.id === Number(nodeId))
-    if (!node || !markerMap.has(Number(nodeId))) {
-      ElMessage.warning('未找到该节点对应的空间坐标')
+    // 重新获取最新节点数据（避免数据同步问题）
+    const spatialNodes = dataStore.getSpatialNodes()
+    const node = spatialNodes.find((item) => item.id === Number(nodeId))
+
+    // 第一步：校验节点和坐标
+    if (!node) {
+      ElMessage.warning('未找到该节点')
+      return
+    }
+    if (node.info?.pointType === 'Class') {
+      ElMessage.warning('该类型节点不支持在地图上显示和定位')
+      return
+    }
+    if (
+      !node.coords ||
+      !Array.isArray(node.coords) ||
+      node.coords.length !== 2 ||
+      isNaN(node.coords[0]) ||
+      isNaN(node.coords[1])
+    ) {
+      ElMessage.warning('该节点坐标无效：' + JSON.stringify(node.coords))
       return
     }
 
-    // 地图定位
-    mapInstance.setCenter(node.coords)
+    // 第二步：强制定位（核心，确保跳转生效）
+    const targetCoords = new window.AMap.LngLat(node.coords[0], node.coords[1])
+    mapInstance.setCenter(targetCoords) // 显式用LngLat对象
     mapInstance.setZoom(14)
-    // 高亮Marker
+    // 兜底：强制让节点出现在视野中（即使setCenter失效）
+    mapInstance.setFitView([markerMap.get(Number(nodeId))], {
+      padding: [50, 50, 50, 50], // 留边避免贴边
+      zoomFixed: 14 // 固定缩放级别
+    })
+
+    // 第三步：安全调用动画（不影响定位）
     const marker = markerMap.get(Number(nodeId))
-    marker.setAnimation('AMAP_ANIMATION_BOUNCE')
-    setTimeout(() => marker.setAnimation(null), 2000)
+    if (marker && typeof marker.setAnimation === 'function') {
+      // 用官方常量替代字符串，提升兼容性
+      marker.setAnimation(window.AMap?.AMAP_ANIMATION_BOUNCE || 'AMAP_ANIMATION_BOUNCE')
+      setTimeout(() => marker.setAnimation(null), 2000)
+    } else if (marker) {
+      // 动画调用失败时的兜底提示（不阻断定位）
+      console.warn('动画方法缺失，跳过动画，但定位已生效')
+    }
+
+    // 第四步：显示信息窗（确认定位）
     showNodeInfo(node)
-  }, 100)
+  }, 800) // 关键：延迟从100→800ms，适配Marker渲染
 }
-// 监听路由参数变化（若在地图页面内切换节点，也能重新定位）
+
+// 监听路由参数变化
 watch([() => route.query.nodeId], () => {
   if (mapInstance) locateNodeByRoute()
 })
@@ -129,8 +183,7 @@ onMounted(async () => {
   await initMap()
   unwatchData = dataStore.watchSpatialData((spatialNodes) => {
     renderSpatialNodes(spatialNodes)
-    // 数据更新后，重新定位当前路由对应的节点
-    locateNodeByRoute()
+    locateNodeByRoute() // 数据更新后重新定位
   })
 })
 
@@ -149,7 +202,7 @@ onUnmounted(() => {
 <style scoped>
 .map-container {
   width: 100%;
-  height: calc(100vh - 60px); /* 占满页面高度 */
+  height: calc(100vh - 60px);
   border: 1px solid #eee;
 }
 </style>

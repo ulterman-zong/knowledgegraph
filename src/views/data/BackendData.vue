@@ -18,7 +18,8 @@ const params = ref({
   pagenum: 1,
   pagesize: 5,
   Data_id: '', // 用于前端过滤的参数
-  state: '' // 用于前端过滤的参数（若数据有该字段）
+  state: '',
+  Point_type: '' // 用于前端过滤的参数（若数据有该字段）
 })
 
 // 存储过滤后的数据（替代后端返回的查询结果）
@@ -35,9 +36,15 @@ const paginatedData = computed(() => {
 const getDataList = () => {
   loading.value = true
   try {
-    // 调用仓库的查询方法，前端过滤数据
-    filteredData.value = queryData(params.value)
-    // 更新总条数
+    // 第一步：调用仓库的查询方法，先按原有条件过滤
+    let tempData = queryData(params.value)
+    // 第二步：额外过滤掉 Point_type 为 Class 的数据（核心修改）
+    filteredData.value = tempData.filter((item) => {
+      // 排除 Point_type 严格等于 'Class' 的条目
+      // 若字段可能不存在，加容错：item.Point_type !== 'Class'
+      return item.Point_type !== 'Class'
+    })
+    // 更新总条数（过滤后的总数）
     total.value = filteredData.value.length
   } catch (error) {
     console.error('数据查询失败：', error)
@@ -45,7 +52,6 @@ const getDataList = () => {
     loading.value = false
   }
 }
-
 // 分页大小改变
 const onSizeChange = (size) => {
   params.value.pagesize = size

@@ -6,6 +6,7 @@ const formModel = ref({
   Data_id: '',
   Data_name: '',
   Data_type: '',
+  Point_type: '',
   x_Coordinates: '',
   y_Coordinates: '',
   z_Coordinates: ''
@@ -34,6 +35,7 @@ const open = (options) => {
       Data_id: '',
       Data_name: '',
       Data_type: '',
+      Point_type: '',
       x_Coordinates: '',
       y_Coordinates: '',
       z_Coordinates: ''
@@ -55,6 +57,9 @@ defineExpose({
       </el-form-item>
       <el-form-item label="数据类型" prop="Data_type">
         <el-input v-model="formModel.Data_type" placeholder="请输入数据类型"></el-input>
+      </el-form-item>
+      <el-form-item label="节点类型" prop="Point_type">
+        <el-input v-model="formModel.Point_type" placeholder="请输入节点类型"></el-input>
       </el-form-item>
       <el-form-item label="x坐标" prop="x_Coordinates">
         <el-input v-model="formModel.x_Coordinates" placeholder="请输入x坐标"></el-input>
