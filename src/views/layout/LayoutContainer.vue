@@ -12,6 +12,8 @@ import {
 } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+const router = useRouter()
 
 const route = useRoute()
 
@@ -19,6 +21,23 @@ const route = useRoute()
 const activeMenuPath = computed(() => {
   return route.path
 })
+
+const handleDropdownCommand = (command) => {
+  switch (command) {
+    case 'profile':
+      router.push('/user/profile')
+      break
+    case 'avatar':
+      router.push('/user/avatar')
+      break
+    case 'password':
+      router.push('/user/password')
+      break
+    case 'logout':
+      router.push('/login')
+      break
+  }
+}
 </script>
 
 <template>
@@ -67,8 +86,8 @@ const activeMenuPath = computed(() => {
     </el-aside>
     <el-container>
       <el-header>
-        <div>大帅哥：<strong>吴维维</strong></div>
-        <el-dropdown placement="bottom-end">
+        <div>用户：<strong>吴维维</strong></div>
+        <el-dropdown placement="bottom-end" @command="handleDropdownCommand">
           <span class="el-dropdown__box">
             <el-avatar :src="avatar" />
             <el-icon><CaretBottom /></el-icon>
@@ -86,7 +105,7 @@ const activeMenuPath = computed(() => {
       <el-main>
         <router-view></router-view>
       </el-main>
-      <el-footer>知识图谱 ©2025 Created by 大帅哥</el-footer>
+      <el-footer>知识图谱 ©2025 Created by 吴维维</el-footer>
     </el-container>
   </el-container>
 </template>

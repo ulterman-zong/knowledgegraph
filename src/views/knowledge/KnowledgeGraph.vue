@@ -6,6 +6,7 @@ import { storeToRefs } from 'pinia'
 import DataEdit from '@/components/DataEdit.vue'
 import LinkEdit from '@/components/LinkEdit.vue'
 import { useRouter } from 'vue-router'
+
 const router = useRouter()
 
 //1.初始化DataStore数据
@@ -78,11 +79,16 @@ const convertStoreToEcharts = () => {
   }))
   // 连线数据（保留原始连线信息）
   const echartsLinks = getLinks()
-  // 给每个连线绑定原始Store数据，方便后续高亮/修改
-  option.value.series[0].links = echartsLinks.map((link, index) => ({
-    ...link,
-    rawLink: linkList.value[index] || null // 关联Store中的原始连线数据
-  }))
+  option.value.series[0].links = echartsLinks.map((echartLink) => {
+    // 1. 按 linkId 匹配原始连线数据（echartLink 现在有 linkId 了）
+    const rawLink = linkList.value.find((l) => l.linkId === echartLink.linkId) || null
+    return {
+      ...echartLink,
+      rawLink,
+      // 2. 兜底：如果 rawLink 为空，把 echartLink 的 linkId 也挂载到外层（备用）
+      linkId: echartLink.linkId
+    }
+  })
 }
 
 // 5. 高亮方法
@@ -114,33 +120,35 @@ const highlightNode = (nodeName, color = '#ff0000') => {
 //亮点连线方法
 const highlightLink = (linkRawData) => {
   const newOption = JSON.parse(JSON.stringify(option.value))
-  // 重置所有节点样式
+  // 重置所有节点样式（原有逻辑不变）
   newOption.series[0].data.forEach((node) => {
     if (node._isSelected) {
       delete node._isSelected
       node.itemStyle = { color: node.rawData.color }
     }
   })
-  // 高亮目标连线（红色、加粗、高透明度）
+  // 高亮目标连线：双重匹配（rawLink.linkId 或 外层 linkId）
   newOption.series[0].links.forEach((link) => {
     if (link._isSelected) {
       delete link._isSelected
       link.lineStyle = { opacity: 0.9, width: 2, curveness: link.rawLink?.curveness || 0.2 }
     }
-    if (link.rawLink?.linkId === linkRawData.linkId) {
+    // 核心修复：先判断 linkRawData 有 linkId，再双重匹配
+    if (
+      linkRawData?.linkId &&
+      (link.rawLink?.linkId === linkRawData.linkId || link.linkId === linkRawData.linkId)
+    ) {
       link._isSelected = true
       link.lineStyle = {
         opacity: 1,
         width: 4,
-        curveness: link.rawLink.curveness || 0.2,
-        color: '#ff0000' // 选中连线红色高亮
+        curveness: link.rawLink?.curveness || link.curveness || 0.2,
+        color: '#ff0000'
       }
     }
   })
   myChart.setOption(newOption)
-  // 记录选中的连线
   selectedLink.value = linkRawData
-  // 清空节点选中状态
   selectedNode.value = null
 }
 
@@ -318,15 +326,23 @@ const handleDeleteLink = () => {
     type: 'warning'
   })
     .then(() => {
+      // 1. 删除 Pinia 中的连线
       deleteLink(selectedLink.value.linkId)
-      selectedLink.value = null // 清空选中状态
+      // 2. 立即清空选中状态（关键：避免残留旧数据）
+      selectedLink.value = null
+      // 3. 强制触发 ECharts 刷新（兜底：即使 watch 没触发，也能更新）
+      convertStoreToEcharts()
+      if (myChart) {
+        myChart.setOption(option.value, true) // 第二个参数 true：强制更新
+      }
       ElMessage.success('连线删除成功！')
     })
     .catch(() => {
+      // 取消删除时也清空选中状态
+      selectedLink.value = null
       ElMessage.info('取消删除连线')
     })
 }
-
 // 处理LinkEdit提交事件
 const handleSubLink = (subData) => {
   if (subData.isEdit) {
@@ -362,6 +378,12 @@ const handleSubLink = (subData) => {
   }
 }
 
+//根据Data_type匹配Point_type=Class的节点
+const findClassNodesByDataType = (dataType) => {
+  //筛选出符合条件的Class节点
+  return DataList.value.filter((item) => item.Point_type === 'Class' && item.Data_type === dataType)
+}
+
 //6.监听DataEdit的subdata事件，处理新增/修改逻辑
 const handleSubData = (subData) => {
   const {
@@ -385,19 +407,56 @@ const handleSubData = (subData) => {
     const defaultLng = 116.403874 // 北京经度
     const defaultLat = 39.914888 // 北京纬度
 
-    addData({
+    // 先新增节点，保存新节点对象（方便后续使用）
+    const newNode = {
       Data_id: newId,
       Data_name,
       Data_type,
       Point_type: Point_type || '',
-      // 有传坐标用传的值，否则用默认真实坐标
       x_Coordinates: x_Coordinates || defaultLng,
       y_Coordinates: y_Coordinates || defaultLat,
       z_Coordinates: z_Coordinates || 0,
       echart_x: randomEchartX,
       echart_y: randomEchartY,
       color: randomColor
-    })
+    }
+    addData(newNode)
+
+    // 问题1修复：触发条件改为 Point_type === 'Data'（符合需求）
+    if (Point_type === 'Data' && Data_type) {
+      // 找到所有匹配的Class节点
+      const matchedClassNodes = findClassNodesByDataType(Data_type)
+
+      // 容错：没有匹配的Class节点时给出提示
+      if (matchedClassNodes.length === 0) {
+        return
+      }
+
+      // 问题2+3修复：遍历数组，为每个匹配的Class节点创建连线
+      let successCount = 0
+      let duplicateCount = 0
+      matchedClassNodes.forEach((classNode) => {
+        // 调用addLink创建连线，Class节点为起点，Data节点为终点
+        const isSuccess = addLink({
+          sourceId: classNode.Data_id, // 取数组中单个Class节点的Data_id
+          targetId: newId, // 新Data节点的ID
+          label: '包含',
+          curveness: 0.2
+        })
+        // 统计创建结果（依赖addLink返回布尔值：true成功，false重复）
+        if (isSuccess) {
+          successCount++
+        } else {
+          duplicateCount++
+        }
+      })
+
+      // 给用户提示，明确创建结果
+      let tip = ''
+      if (successCount > 0) tip += `成功创建${successCount}条连线`
+      if (duplicateCount > 0) tip += `${tip ? '，' : ''}${duplicateCount}条连线已存在`
+      ElMessage.success(tip)
+    }
   } else {
     updateData(Data_id, {
       Data_name,

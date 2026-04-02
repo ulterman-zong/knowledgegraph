@@ -13,6 +13,7 @@ export const useDataStore = defineStore('Data', () => {
           Data_id: 100001,
           Data_name: 'Node 1',
           Data_type: '类型A',
+          Point_type: 'Data',
           // 大地坐标（业务数据，不参与ECharts布局）
           x_Coordinates: 120.123456,
           y_Coordinates: 30.654321,
@@ -27,6 +28,7 @@ export const useDataStore = defineStore('Data', () => {
           Data_id: 100002,
           Data_name: 'Node 2',
           Data_type: '类型B',
+          Point_type: 'Class',
           x_Coordinates: 120.234567, // 大地坐标
           y_Coordinates: 30.765432,
           z_Coordinates: 35,
@@ -134,6 +136,7 @@ export const useDataStore = defineStore('Data', () => {
         return {
           source: sourceNode?.Data_name || '', // ECharts用名称匹配节点
           target: targetNode?.Data_name || '',
+          linkId: link.linkId,
           label: { show: true, formatter: link.label || '关联' }, // 连线标签
           lineStyle: { curveness: link.curveness || 0.2, width: 2 }
         }

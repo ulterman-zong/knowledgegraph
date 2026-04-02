@@ -1,11 +1,6 @@
 // src/utils/gaode.js
 import axios from 'axios'
 
-/**
- * 高德API专属axios实例配置
- * 仅负责：创建axios实例 + 响应拦截器（无任何地图相关逻辑）
- */
-
 // 高德API基础配置（可抽离到.env）
 const AMAP_AXIOS_CONFIG = {
   baseURL: 'https://restapi.amap.com/v3',

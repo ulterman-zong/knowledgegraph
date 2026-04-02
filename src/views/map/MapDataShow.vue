@@ -2,8 +2,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useDataStore } from '@/stores/modules/DataStore'
 import { useRoute } from 'vue-router'
-import markerIcon from '@/assets/bb63e069635472c8c6cfc779ac6874a7.jpg'
-import { ElMessage } from 'element-plus'
+import markerIcon from '@/assets/屏幕截图 2026-01-06 155443.png'
 
 // 高德配置
 const AMAP_CONFIG = {

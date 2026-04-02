@@ -1,4 +1,5 @@
 <script setup>
+import { ElMessage } from 'element-plus'
 import { ref } from 'vue'
 
 // 1. 表单实例ref（用于触发校验）
@@ -28,7 +29,7 @@ const submitForm = async () => {
   // 仅执行表单校验，无接口请求/数据提交等业务逻辑
   try {
     await formRef.value.validate()
-    alert('表单校验通过！') // 静态提示（无业务逻辑）
+    ElMessage.success('表单校验通过！')
   } catch (error) {
     console.log('表单校验失败：', error)
   }
