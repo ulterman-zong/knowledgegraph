@@ -19,6 +19,10 @@ const router = createRouter({
           component: () => import('@/views/data/BackendData.vue')
         },
         {
+          path: '/data/geoserver',
+          component: () => import('@/views/data/GeoServerManage.vue')
+        },
+        {
           path: '/user/profile',
           component: () => import('@/views/user/UserProfile.vue')
         },

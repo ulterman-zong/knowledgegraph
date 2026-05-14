@@ -155,19 +155,20 @@ export const useDataStore = defineStore('Data', () => {
         )
       })
       .map((item) => {
-        //转为地图组件所需格式
         return {
           id: item.Data_id,
-          name: item.Data_name, // 节点名称
-          coords: [item.x_Coordinates, item.y_Coordinates], // 高德坐标[经度, 纬度]
+          name: item.Data_name,
+          coords: [item.x_Coordinates, item.y_Coordinates],
           info: {
-            // 弹窗展示的信息（可扩展）
             type: item.Data_type,
-            pointType: item.Point_type, // 新增：传递点位类型到地图
+            pointType: item.Point_type,
             z: item.z_Coordinates,
-            parentId: item.parent_id
+            parentId: item.parent_id,
+            geometryType: item._geometryType,
+            geometry: item._geometry,
+            geoserverProperties: item._geoserverProperties
           },
-          color: item.color // 节点颜色（同步知识图谱）
+          color: item.color
         }
       })
   }
@@ -190,6 +191,137 @@ export const useDataStore = defineStore('Data', () => {
       y_Coordinates: lat
     })
   }
+
+  // GeoServer服务器配置管理
+  const initGeoServerConfigs = () => {
+    const saved = localStorage.getItem('geoserver_configs')
+    if (saved) {
+      return JSON.parse(saved)
+    }
+    return [
+      {
+        id: 'default',
+        name: '本地GeoServer',
+        url: import.meta.env.VITE_GEOSERVER_URL || 'http://localhost:8080/geoserver/wfs',
+        workspace: import.meta.env.VITE_GEOSERVER_WORKSPACE || 'knowledgegraph',
+        description: '默认本地GeoServer服务器',
+        isActive: true,
+        createdAt: new Date().toISOString()
+      }
+    ]
+  }
+
+  const geoServerConfigs = ref(initGeoServerConfigs())
+
+  const syncGeoServerToLocal = () => {
+    localStorage.setItem('geoserver_configs', JSON.stringify(geoServerConfigs.value))
+  }
+
+  const addGeoServer = (config) => {
+    const newServer = {
+      id: `geoserver_${Date.now()}`,
+      name: config.name,
+      url: config.url,
+      workspace: config.workspace || '',
+      description: config.description || '',
+      isActive: false,
+      createdAt: new Date().toISOString()
+    }
+    geoServerConfigs.value.push(newServer)
+    syncGeoServerToLocal()
+    return newServer
+  }
+
+  const updateGeoServer = (id, updates) => {
+    const index = geoServerConfigs.value.findIndex((s) => s.id === id)
+    if (index !== -1) {
+      geoServerConfigs.value[index] = { ...geoServerConfigs.value[index], ...updates }
+      syncGeoServerToLocal()
+    }
+  }
+
+  const deleteGeoServer = (id) => {
+    if (id === 'default') {
+      throw new Error('不能删除默认服务器')
+    }
+    const index = geoServerConfigs.value.findIndex((s) => s.id === id)
+    if (index !== -1) {
+      geoServerConfigs.value.splice(index, 1)
+      syncGeoServerToLocal()
+    }
+  }
+
+  const switchGeoServer = (id) => {
+    geoServerConfigs.value.forEach((s) => {
+      s.isActive = false
+    })
+    const server = geoServerConfigs.value.find((s) => s.id === id)
+    if (server) {
+      server.isActive = true
+      syncGeoServerToLocal()
+    }
+  }
+
+  const getCurrentGeoServer = () => {
+    return geoServerConfigs.value.find((s) => s.isActive) || geoServerConfigs.value[0]
+  }
+
+  const getGeoServerById = (id) => {
+    return geoServerConfigs.value.find((s) => s.id === id)
+  }
+
+  // GeoServer图层配置管理
+  const initGeoServerLayers = () => {
+    const saved = localStorage.getItem('geoserver_layers')
+    if (saved) {
+      return JSON.parse(saved)
+    }
+    return []
+  }
+
+  const geoServerLayers = ref(initGeoServerLayers())
+
+  const syncGeoServerLayersToLocal = () => {
+    localStorage.setItem('geoserver_layers', JSON.stringify(geoServerLayers.value))
+  }
+
+  const addGeoServerLayer = (layerConfig) => {
+    const newLayer = {
+      id: `layer_${Date.now()}`,
+      serverId: layerConfig.serverId,
+      typeName: layerConfig.typeName,
+      name: layerConfig.name,
+      title: layerConfig.title,
+      geometryType: layerConfig.geometryType,
+      style: layerConfig.style || {},
+      visible: true,
+      createdAt: new Date().toISOString()
+    }
+    geoServerLayers.value.push(newLayer)
+    syncGeoServerLayersToLocal()
+    return newLayer
+  }
+
+  const updateGeoServerLayer = (id, updates) => {
+    const index = geoServerLayers.value.findIndex((l) => l.id === id)
+    if (index !== -1) {
+      geoServerLayers.value[index] = { ...geoServerLayers.value[index], ...updates }
+      syncGeoServerLayersToLocal()
+    }
+  }
+
+  const deleteGeoServerLayer = (id) => {
+    const index = geoServerLayers.value.findIndex((l) => l.id === id)
+    if (index !== -1) {
+      geoServerLayers.value.splice(index, 1)
+      syncGeoServerLayersToLocal()
+    }
+  }
+
+  const getLayersByServer = (serverId) => {
+    return geoServerLayers.value.filter((l) => l.serverId === serverId)
+  }
+
   return {
     DataList,
     linkList,
@@ -204,6 +336,18 @@ export const useDataStore = defineStore('Data', () => {
     updateLink,
     getSpatialNodes,
     watchSpatialData,
-    updateNodeCoords
+    updateNodeCoords,
+    geoServerConfigs,
+    addGeoServer,
+    updateGeoServer,
+    deleteGeoServer,
+    switchGeoServer,
+    getCurrentGeoServer,
+    getGeoServerById,
+    geoServerLayers,
+    addGeoServerLayer,
+    updateGeoServerLayer,
+    deleteGeoServerLayer,
+    getLayersByServer
   }
 })

@@ -8,7 +8,8 @@ import {
   EditPen,
   SwitchButton,
   CaretBottom,
-  MapLocation
+  MapLocation,
+  DataAnalysis
 } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import { computed } from 'vue'
@@ -60,10 +61,20 @@ const handleDropdownCommand = (command) => {
           <el-icon><Management /></el-icon>
           <span>知识图谱</span>
         </el-menu-item>
-        <el-menu-item index="/data/backenddata">
-          <el-icon><Promotion /></el-icon>
-          <span>后台数据</span>
-        </el-menu-item>
+        <el-sub-menu index="/data">
+          <template #title>
+            <el-icon><Promotion /></el-icon>
+            <span>数据管理</span>
+          </template>
+          <el-menu-item index="/data/backenddata">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>后台数据</span>
+          </el-menu-item>
+          <el-menu-item index="/data/geoserver">
+            <el-icon><MapLocation /></el-icon>
+            <span>GeoServer管理</span>
+          </el-menu-item>
+        </el-sub-menu>
         <el-sub-menu index="/user">
           <template #title>
             <el-icon><UserFilled /></el-icon>
